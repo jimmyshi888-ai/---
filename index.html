@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專業甘特圖 - 支援父子層級鑽取</title>
+    <style>
+        :root {
+            --overdue-color: #e74c3c;
+            --done-color: #95a5a6;
+            --bg-color: #f4f7f6;
+            --bar-height: 55px;
+            --cell-width: 60px; 
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 10px;
+        }
+
+        .container {
+            width: 98vw;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+
+        h2 { text-align: center; margin: 0; color: #2c3e50; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 15px; font-size: 0.9em; }
+
+        .toolbar { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
+        .input-group {
+            display: flex; gap: 10px; margin-bottom: 15px; padding: 15px;
+            background: #eef2f5; border-radius: 8px; flex-wrap: wrap;
+        }
+        input, select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; flex: 1; min-width: 150px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        #addBtn { background: #4a90e2; color: white; }
+        #clearBtn { background: #7f8c8d; color: white; }
+
+        .gantt-scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            position: relative;
+        }
+
+        .gantt-wrapper { position: relative; }
+
+        .gantt-header {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            height: 40px;
+            align-items: center;
+        }
+
+        .gantt-date-cell {
+            width: var(--cell-width);
+            flex-shrink: 0;
+            text-align: center;
+            font-size: 11px;
+            border-right: 1px solid #f1f1f1;
+            color: #888;
+            font-weight: bold;
+        }
+
+        .gantt-body {
+            position: relative;
+            min-height: 500px;
+            background-image: linear-gradient(to right, #f1f1f1 1px, transparent 1px);
+        }
+
+        .task-row { height: var(--bar-height); position: relative; border-bottom: 1px solid #f8f9fa; }
+
+        .task-bar {
+            position: absolute; height: 32px; top: 11px; border-radius: 6px;
+            z-index: 10; box-sizing: border-box; overflow: visible;
+            white-space: nowrap; transition: transform 0.2s; cursor: pointer;
+        }
+
+        .task-bar:hover { z-index: 100; transform: scaleY(1.05); }
+
+        /* 層級樣式 */
+        .task-label {
+            position: absolute; left: 0; top: 0; height: 100%;
+            display: flex; align-items: center; padding: 0 10px;
+            border-radius: 6px; font-size: 13px; color: white;
+            font-weight: 500;
+            background: rgba(0, 0, 0, 0.55);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+        }
+
+        .parent-indicator { margin-right: 5px; font-size: 10px; transition: 0.3s; }
+        .sub-task { margin-left: 20px; font-size: 12px; } /* 子任務縮排 */
+
+        .day-info {
+            margin-left: 8px; font-size: 11px; font-weight: normal;
+            background: rgba(255, 255, 255, 0.2); padding: 1px 5px; border-radius: 4px;
+        }
+
+        .task-bar.overdue .task-label { background-color: rgba(231, 76, 60, 0.9) !important; }
+        .task-bar.done { opacity: 0.5; filter: grayscale(1); }
+        .task-bar.done .task-label { text-decoration: line-through; }
+
+        .action-btns {
+            position: absolute; left: 0; top: -25px;
+            display: flex; gap: 5px; opacity: 0;
+            transition: 0.2s; z-index: 110;
+        }
+        .task-bar:hover .action-btns { opacity: 1; }
+
+        .icon-btn {
+            border: 1px solid rgba(255,255,255,0.3);
+            background: #34495e; color: white; border-radius: 4px;
+            cursor: pointer; padding: 2px 8px; font-size: 11px;
+        }
+
+        .today-line {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+            background: #f1c40f; z-index: 5; box-shadow: 0 0 8px rgba(241,196,15,0.6);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 專案進度管理 (支援層級鑽取)</h2>
+    <p class="subtitle">點擊大項目標籤可展開/收合子任務</p>
+    
+    <div class="toolbar">
+        <button id="exportBtn" class="btn" style="background:#8e44ad;color:white">⬇ 匯出</button>
+        <button id="importBtn" class="btn" style="background:#f39c12;color:white">⬆ 匯入</button>
+        <input type="file" id="fileInput" accept=".json" style="display: none;">
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="taskName" placeholder="任務名稱...">
+        <input type="date" id="startDate">
+        <input type="date" id="endDate">
+        <select id="parentSelect">
+            <option value="">-- 設定為父任務 --</option>
+        </select>
+        <button id="addBtn" class="btn">＋ 新增</button>
+        <button id="clearBtn" class="btn">清空</button>
+    </div>
+
+    <div class="gantt-scroll-container">
+        <div class="gantt-wrapper" id="ganttWrapper">
+            <div class="gantt-header" id="ganttHeader"></div>
+            <div class="gantt-body" id="ganttBody"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'gantt_v10_hierarchy';
+    
+    // 初始化範例資料
+    let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
+        { id: Date.now(), name: "里程碑一：AI 模型開發", start: "2026-03-09", end: "2026-03-20", done: false, isParent: true, expanded: true },
+        { id: Date.now()+1, name: "子任務：數據清洗", start: "2026-03-09", end: "2026-03-12", done: false, parentId: null } 
+    ];
+
+    const CELL_WIDTH = 60; 
+
+    function getTaskColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        return `hsl(${Math.abs(hash) % 360}, 60%, 45%)`;
+    }
+
+    const ganttHeader = document.getElementById('ganttHeader');
+    const ganttBody = document.getElementById('ganttBody');
+    const ganttWrapper = document.getElementById('ganttWrapper');
+    const parentSelect = document.getElementById('parentSelect');
+
+    function updateParentSelect() {
+        parentSelect.innerHTML = '<option value="">-- 設定為父任務 --</option>';
+        tasks.filter(t => t.isParent).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.innerText = t.name;
+            parentSelect.appendChild(opt);
+        });
+    }
+
+    function saveAndRender() {
+        // 排序：確保父任務跟子任務排在一起
+        tasks.sort((a, b) => {
+            const aStart = new Date(a.start);
+            const bStart = new Date(b.start);
+            if (aStart - bStart !== 0) return aStart - bStart;
+            return (a.parentId ? 1 : -1);
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        updateParentSelect();
+        renderGantt();
+    }
+
+    function toggleExpand(id) {
+        const task = tasks.find(t => t.id == id);
+        if (task) {
+            task.expanded = !task.expanded;
+            saveAndRender();
+        }
+    }
+
+    function renderGantt() {
+        ganttHeader.innerHTML = ''; ganttBody.innerHTML = '';
+        if (tasks.length === 0) return;
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        let allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
+        allDates.push(today); 
+        
+        let minDate = new Date(Math.min(...allDates));
+        let maxDate = new Date(Math.max(...allDates));
+        minDate.setDate(minDate.getDate() - 2); 
+        maxDate.setDate(maxDate.getDate() + 5);
+
+        const totalDays = Math.ceil((maxDate - minDate) / 86400000) + 1;
+        
+        const totalWidth = totalDays * CELL_WIDTH;
+        ganttWrapper.style.width = `${totalWidth}px`;
+        ganttBody.style.backgroundSize = `${CELL_WIDTH}px 100%`;
+
+        for (let i = 0; i < totalDays; i++) {
+            let curr = new Date(minDate); curr.setDate(minDate.getDate() + i);
+            const cell = document.createElement('div');
+            cell.className = 'gantt-date-cell';
+            cell.innerText = `${curr.getMonth() + 1}/${curr.getDate()}`;
+            if (curr.toDateString() === today.toDateString()) cell.style.background = "#fff3cd";
+            ganttHeader.appendChild(cell);
+        }
+
+        const todayPos = (today - minDate.setHours(0,0,0,0)) / 86400000;
+        const line = document.createElement('div');
+        line.className = 'today-line';
+        line.style.left = `${todayPos * CELL_WIDTH}px`;
+        ganttBody.appendChild(line);
+
+        tasks.forEach((task, index) => {
+            // 檢查子任務是否應該顯示 (父任務是否展開)
+            if (task.parentId) {
+                const parent = tasks.find(t => t.id == task.parentId);
+                if (parent && !parent.expanded) return;
+            }
+
+            const start = new Date(task.start), end = new Date(task.end);
+            start.setHours(0,0,0,0); end.setHours(0,0,0,0);
+            
+            const left = ((start - minDate) / 86400000) * CELL_WIDTH;
+            const duration = Math.ceil((end - start) / 86400000) + 1;
+            const width = duration * CELL_WIDTH;
+            
+            const overdueCount = Math.ceil((today - end) / 86400000) - 1;
+            const isOverdue = !task.done && today > end;
+            
+            let dayText = task.done ? "✓ 已完成" : (isOverdue ? `⚠️ 逾期 ${overdueCount} 天` : `進行中`);
+
+            const row = document.createElement('div');
+            row.className = 'task-row';
+            
+            // 如果是父任務，增加點擊展開的功能
+            const clickAction = task.isParent ? `onclick="toggleExpand(${task.id})"` : "";
+            const indicator = task.isParent ? `<span class="parent-indicator">${task.expanded ? '▼' : '▶'}</span>` : "";
+            const labelClass = task.parentId ? "sub-task" : "";
+
+            row.innerHTML = `
+                <div class="task-bar ${task.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}" 
+                     style="left: ${left}px; width: ${width}px; background-color: ${getTaskColor(task.name)};"
+                     ${clickAction}>
+                    <div class="action-btns">
+                        <button class="icon-btn" onclick="event.stopPropagation(); toggleTask(${task.id})">✓</button>
+                        <button class="icon-btn" onclick="event.stopPropagation(); deleteTask(${task.id})">×</button>
+                    </div>
+                    <div class="task-label ${labelClass}">
+                        ${indicator}${task.name} <span class="day-info">${dayText}</span>
+                    </div>
+                </div>
+            `;
+            ganttBody.appendChild(row);
+        });
+    }
+
+    document.getElementById('addBtn').onclick = () => {
+        const n = document.getElementById('taskName').value;
+        const s = document.getElementById('startDate').value;
+        const e = document.getElementById('endDate').value;
+        const pId = document.getElementById('parentSelect').value;
+
+        if(n && s && e) {
+            tasks.push({ 
+                id: Date.now(), 
+                name: n, 
+                start: s, 
+                end: e, 
+                done: false, 
+                isParent: (pId === ""), // 如果沒選父任務，自己就是父任務
+                parentId: (pId === "" ? null : pId),
+                expanded: true 
+            });
+            saveAndRender();
+            document.getElementById('taskName').value = '';
+        }
+    };
+
+    window.toggleTask = (id) => { 
+        const task = tasks.find(t => t.id == id);
+        if(task) task.done = !task.done; 
+        saveAndRender(); 
+    };
+    
+    window.deleteTask = (id) => { 
+        if(confirm('確定刪除？')) { 
+            tasks = tasks.filter(t => t.id != id && t.parentId != id); // 同時刪除子任務
+            saveAndRender(); 
+        } 
+    };
+
+    document.getElementById('clearBtn').onclick = () => { if(confirm('清空？')) { tasks=[]; saveAndRender(); } };
+
+    document.getElementById('exportBtn').onclick = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+        const a = document.createElement('a'); a.href = dataStr; a.download = "gantt_hierarchy_backup.json"; a.click();
+    };
+    document.getElementById('importBtn').onclick = () => document.getElementById('fileInput').click();
+    document.getElementById('fileInput').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => { tasks = JSON.parse(ev.target.result); saveAndRender(); };
+        reader.readAsText(e.target.files[0]);
+    };
+
+    saveAndRender();
+</script>
+</body>
+</html>
