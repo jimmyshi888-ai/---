@@ -3,139 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業甘特圖 - 支援父子層級鑽取</title>
+    <title>專業甘特圖 - 多維度視圖與層級管理</title>
     <style>
         :root {
             --overdue-color: #e74c3c;
             --done-color: #95a5a6;
             --bg-color: #f4f7f6;
             --bar-height: 55px;
-            --cell-width: 60px; 
+            --cell-width: 60px; /* 動態調整 */
         }
 
-        body {
-            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 10px;
-        }
-
-        .container {
-            width: 98vw;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            box-sizing: border-box;
-        }
-
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background-color: var(--bg-color); margin: 0; padding: 10px; }
+        .container { width: 98vw; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
         h2 { text-align: center; margin: 0; color: #2c3e50; }
         p.subtitle { text-align: center; color: #666; margin-bottom: 15px; font-size: 0.9em; }
 
-        .toolbar { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
-        .input-group {
-            display: flex; gap: 10px; margin-bottom: 15px; padding: 15px;
-            background: #eef2f5; border-radius: 8px; flex-wrap: wrap;
-        }
+        .toolbar { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; align-items: center; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; padding: 15px; background: #eef2f5; border-radius: 8px; flex-wrap: wrap; }
         input, select { padding: 8px; border: 1px solid #ddd; border-radius: 6px; flex: 1; min-width: 150px; }
         .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         #addBtn { background: #4a90e2; color: white; }
         #clearBtn { background: #7f8c8d; color: white; }
 
-        .gantt-scroll-container {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            position: relative;
-        }
+        /* 視圖切換下拉選單樣式 */
+        .view-selector { background: #34495e; color: white; font-weight: bold; }
 
+        .gantt-scroll-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: white; position: relative; }
         .gantt-wrapper { position: relative; }
-
-        .gantt-header {
-            display: flex;
-            background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-            height: 40px;
-            align-items: center;
-        }
-
-        .gantt-date-cell {
-            width: var(--cell-width);
-            flex-shrink: 0;
-            text-align: center;
-            font-size: 11px;
-            border-right: 1px solid #f1f1f1;
-            color: #888;
-            font-weight: bold;
-        }
-
-        .gantt-body {
-            position: relative;
-            min-height: 500px;
-            background-image: linear-gradient(to right, #f1f1f1 1px, transparent 1px);
-        }
-
+        .gantt-header { display: flex; background: #f8f9fa; border-bottom: 2px solid #dee2e6; height: 40px; align-items: center; }
+        .gantt-date-cell { width: var(--cell-width); flex-shrink: 0; text-align: center; font-size: 11px; border-right: 1px solid #f1f1f1; color: #888; font-weight: bold; }
+        .gantt-body { position: relative; min-height: 500px; background-image: linear-gradient(to right, #f1f1f1 1px, transparent 1px); }
         .task-row { height: var(--bar-height); position: relative; border-bottom: 1px solid #f8f9fa; }
 
-        .task-bar {
-            position: absolute; height: 32px; top: 11px; border-radius: 6px;
-            z-index: 10; box-sizing: border-box; overflow: visible;
-            white-space: nowrap; transition: transform 0.2s; cursor: pointer;
-        }
-
+        .task-bar { position: absolute; height: 32px; top: 11px; border-radius: 6px; z-index: 10; box-sizing: border-box; overflow: visible; white-space: nowrap; transition: 0.2s; cursor: pointer; }
         .task-bar:hover { z-index: 100; transform: scaleY(1.05); }
 
-        /* 層級樣式 */
-        .task-label {
-            position: absolute; left: 0; top: 0; height: 100%;
-            display: flex; align-items: center; padding: 0 10px;
-            border-radius: 6px; font-size: 13px; color: white;
-            font-weight: 500;
-            background: rgba(0, 0, 0, 0.55);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-        }
-
-        .parent-indicator { margin-right: 5px; font-size: 10px; transition: 0.3s; }
-        .sub-task { margin-left: 20px; font-size: 12px; } /* 子任務縮排 */
-
-        .day-info {
-            margin-left: 8px; font-size: 11px; font-weight: normal;
-            background: rgba(255, 255, 255, 0.2); padding: 1px 5px; border-radius: 4px;
-        }
+        .task-label { position: absolute; left: 0; top: 0; height: 100%; display: flex; align-items: center; padding: 0 10px; border-radius: 6px; font-size: 13px; color: white; font-weight: 500; background: rgba(0, 0, 0, 0.55); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+        .parent-indicator { margin-right: 5px; font-size: 10px; }
+        .sub-task { margin-left: 20px; font-size: 12px; }
+        .day-info { margin-left: 8px; font-size: 11px; font-weight: normal; background: rgba(255, 255, 255, 0.2); padding: 1px 5px; border-radius: 4px; }
 
         .task-bar.overdue .task-label { background-color: rgba(231, 76, 60, 0.9) !important; }
         .task-bar.done { opacity: 0.5; filter: grayscale(1); }
         .task-bar.done .task-label { text-decoration: line-through; }
 
-        .action-btns {
-            position: absolute; left: 0; top: -25px;
-            display: flex; gap: 5px; opacity: 0;
-            transition: 0.2s; z-index: 110;
-        }
+        .action-btns { position: absolute; left: 0; top: -25px; display: flex; gap: 5px; opacity: 0; transition: 0.2s; z-index: 110; }
         .task-bar:hover .action-btns { opacity: 1; }
-
-        .icon-btn {
-            border: 1px solid rgba(255,255,255,0.3);
-            background: #34495e; color: white; border-radius: 4px;
-            cursor: pointer; padding: 2px 8px; font-size: 11px;
-        }
-
-        .today-line {
-            position: absolute; top: 0; bottom: 0; width: 2px;
-            background: #f1c40f; z-index: 5; box-shadow: 0 0 8px rgba(241,196,15,0.6);
-        }
+        .icon-btn { border: 1px solid rgba(255,255,255,0.3); background: #34495e; color: white; border-radius: 4px; cursor: pointer; padding: 2px 8px; font-size: 11px; }
+        .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #f1c40f; z-index: 5; box-shadow: 0 0 8px rgba(241,196,15,0.6); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📊 專案進度管理 (支援層級鑽取)</h2>
-    <p class="subtitle">點擊大項目標籤可展開/收合子任務</p>
+    <h2>📊 專案進度管理 (多視圖切換版)</h2>
+    <p class="subtitle">支援父子鑽取 | 切換日、周、月、年視圖</p>
     
     <div class="toolbar">
+        <select id="viewMode" class="view-selector" onchange="changeViewMode()">
+            <option value="day">檢視：日 (Day)</option>
+            <option value="week">檢視：周 (Week)</option>
+            <option value="month">檢視：月 (Month)</option>
+            <option value="year">檢視：年 (Year)</option>
+        </select>
         <button id="exportBtn" class="btn" style="background:#8e44ad;color:white">⬇ 匯出</button>
         <button id="importBtn" class="btn" style="background:#f39c12;color:white">⬆ 匯入</button>
         <input type="file" id="fileInput" accept=".json" style="display: none;">
@@ -161,11 +91,10 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'gantt_v10_hierarchy';
-    
+    const STORAGE_KEY = 'gantt_v11_multiview';
     let tasks = [];
+    let currentViewMode = 'day';
 
-    // 1. 初始化資料
     function initData() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -173,13 +102,16 @@
         } else {
             const pId = Date.now();
             tasks = [
-                { id: pId, name: "範例：TMS 運輸管理系統", start: "2026-03-09", end: "2026-03-29", done: false, isParent: true, expanded: true },
-                { id: Date.now() + 1, name: "子項目：路徑演算法實作", start: "2026-03-15", end: "2026-03-25", done: false, parentId: pId }
+                { id: pId, name: "範例：TMS 運輸管理系統", start: "2026-03-09", end: "2026-05-30", done: false, isParent: true, expanded: true },
+                { id: Date.now() + 1, name: "子項目：路徑演算法實作", start: "2026-03-15", end: "2026-04-15", done: false, parentId: pId }
             ];
         }
     }
 
-    const CELL_WIDTH = 60; 
+    function changeViewMode() {
+        currentViewMode = document.getElementById('viewMode').value;
+        saveAndRender();
+    }
 
     function getTaskColor(str) {
         let hash = 0;
@@ -187,28 +119,19 @@
         return `hsl(${Math.abs(hash) % 360}, 60%, 45%)`;
     }
 
-    // 2. 更新父任務下拉選單 (補回消失的函數)
     function updateParentSelect() {
         const select = document.getElementById('parentSelect');
         if (!select) return;
         select.innerHTML = '<option value="">-- 設定為大項目 (父任務) --</option>';
         tasks.filter(t => t.isParent).forEach(t => {
             const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.innerText = t.name;
+            opt.value = t.id; opt.innerText = t.name;
             select.appendChild(opt);
         });
     }
 
     function saveAndRender() {
-        // 優化排序邏輯：讓子任務緊跟在父任務後面
-        tasks.sort((a, b) => {
-            const aBase = a.parentId || a.id;
-            const bBase = b.parentId || b.id;
-            if (aBase !== bBase) return aBase - bBase; // 先按群組分
-            return (a.parentId ? 1 : -1); // 同群組內，父任務在上
-        });
-
+        tasks.sort((a, b) => (a.parentId || a.id) - (b.parentId || b.id) || (a.parentId ? 1 : -1));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
         updateParentSelect();
         renderGantt();
@@ -216,81 +139,91 @@
 
     function toggleExpand(id) {
         const task = tasks.find(t => t.id == id);
-        if (task) {
-            task.expanded = !task.expanded;
-            saveAndRender();
-        }
+        if (task) { task.expanded = !task.expanded; saveAndRender(); }
     }
 
     function renderGantt() {
         const ganttHeader = document.getElementById('ganttHeader');
         const ganttBody = document.getElementById('ganttBody');
         const ganttWrapper = document.getElementById('ganttWrapper');
-        
         ganttHeader.innerHTML = ''; ganttBody.innerHTML = '';
         if (tasks.length === 0) return;
 
         const today = new Date(); today.setHours(0,0,0,0);
         let allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
-        allDates.push(today); 
-        
+        allDates.push(today);
         let minDate = new Date(Math.min(...allDates));
         let maxDate = new Date(Math.max(...allDates));
-        minDate.setDate(minDate.getDate() - 2); 
-        maxDate.setDate(maxDate.getDate() + 5);
 
-        const totalDays = Math.ceil((maxDate - minDate) / 86400000) + 1;
-        const totalWidth = totalDays * CELL_WIDTH;
-        ganttWrapper.style.width = `${totalWidth}px`;
-        ganttBody.style.backgroundSize = `${CELL_WIDTH}px 100%`;
+        // 調整比例參數
+        let cellWidth = 60;
+        let stepMs = 86400000; // 一天
 
-        for (let i = 0; i < totalDays; i++) {
-            let curr = new Date(minDate); curr.setDate(minDate.getDate() + i);
+        if (currentViewMode === 'day') {
+            minDate.setDate(minDate.getDate() - 2);
+            maxDate.setDate(maxDate.getDate() + 5);
+        } else if (currentViewMode === 'week') {
+            stepMs *= 7; cellWidth = 100;
+            minDate.setDate(minDate.getDate() - 14);
+            maxDate.setDate(maxDate.getDate() + 21);
+        } else if (currentViewMode === 'month') {
+            stepMs *= 30; cellWidth = 120;
+            minDate.setMonth(minDate.getMonth() - 1);
+            maxDate.setMonth(maxDate.getMonth() + 2);
+        } else if (currentViewMode === 'year') {
+            stepMs *= 365; cellWidth = 200;
+            minDate.setFullYear(minDate.getFullYear() - 1);
+            maxDate.setFullYear(maxDate.getFullYear() + 1);
+        }
+
+        const totalWidthDays = Math.ceil((maxDate - minDate) / stepMs) + 1;
+        document.documentElement.style.setProperty('--cell-width', `${cellWidth}px`);
+        ganttWrapper.style.width = `${totalWidthDays * cellWidth}px`;
+        ganttBody.style.backgroundSize = `${cellWidth}px 100%`;
+
+        for (let i = 0; i < totalWidthDays; i++) {
+            let curr = new Date(minDate.getTime() + i * stepMs);
             const cell = document.createElement('div');
             cell.className = 'gantt-date-cell';
-            cell.innerText = `${curr.getMonth() + 1}/${curr.getDate()}`;
-            if (curr.toDateString() === today.toDateString()) cell.style.background = "#fff3cd";
+            
+            if (currentViewMode === 'day') cell.innerText = `${curr.getMonth() + 1}/${curr.getDate()}`;
+            else if (currentViewMode === 'week') cell.innerText = `${curr.getMonth() + 1}月 第${Math.ceil(curr.getDate()/7)}週`;
+            else if (currentViewMode === 'month') cell.innerText = `${curr.getFullYear()}/${curr.getMonth() + 1}月`;
+            else cell.innerText = `${curr.getFullYear()}年`;
+
+            if (currentViewMode === 'day' && curr.toDateString() === today.toDateString()) cell.style.background = "#fff3cd";
             ganttHeader.appendChild(cell);
         }
 
-        const todayPos = (today - minDate.setHours(0,0,0,0)) / 86400000;
+        const todayPos = (today - minDate) / stepMs;
         const line = document.createElement('div');
         line.className = 'today-line';
-        line.style.left = `${todayPos * CELL_WIDTH}px`;
+        line.style.left = `${todayPos * cellWidth}px`;
         ganttBody.appendChild(line);
 
         tasks.forEach((task) => {
-            // 鑽取隱藏邏輯
-            if (task.parentId) {
-                const parent = tasks.find(t => t.id == task.parentId);
-                if (parent && !parent.expanded) return;
-            }
+            if (task.parentId && !tasks.find(t => t.id == task.parentId)?.expanded) return;
 
             const start = new Date(task.start), end = new Date(task.end);
-            start.setHours(0,0,0,0); end.setHours(0,0,0,0);
-            const left = ((start - minDate) / 86400000) * CELL_WIDTH;
-            const duration = Math.ceil((end - start) / 86400000) + 1;
-            const width = duration * CELL_WIDTH;
-            const overdueCount = Math.ceil((today - end) / 86400000) - 1;
+            const left = ((start - minDate) / stepMs) * cellWidth;
+            const width = ((end - start + 86400000) / stepMs) * cellWidth;
+            
             const isOverdue = !task.done && today > end;
-            let dayText = task.done ? "✓ 已完成" : (isOverdue ? `⚠️ 逾期 ${overdueCount} 天` : `進行中`);
+            const overdueCount = Math.ceil((today - end) / 86400000) - 1;
+            let dayText = task.done ? "✓ 完成" : (isOverdue ? `⚠️ 逾期 ${overdueCount}天` : `進行中`);
 
             const row = document.createElement('div');
             row.className = 'task-row';
-            const clickAction = task.isParent ? `onclick="toggleExpand(${task.id})"` : "";
-            const indicator = task.isParent ? `<span class="parent-indicator">${task.expanded ? '▼' : '▶'}</span>` : "";
-            const labelClass = task.parentId ? "sub-task" : "";
-
             row.innerHTML = `
                 <div class="task-bar ${task.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}" 
                      style="left: ${left}px; width: ${width}px; background-color: ${getTaskColor(task.name)};"
-                     ${clickAction}>
+                     ${task.isParent ? `onclick="toggleExpand(${task.id})"` : ""}>
                     <div class="action-btns">
                         <button class="icon-btn" onclick="event.stopPropagation(); toggleTask(${task.id})">✓</button>
                         <button class="icon-btn" onclick="event.stopPropagation(); deleteTask(${task.id})">×</button>
                     </div>
-                    <div class="task-label ${labelClass}">
-                        ${indicator}${task.name} <span class="day-info">${dayText}</span>
+                    <div class="task-label ${task.parentId ? "sub-task" : ""}">
+                        ${task.isParent ? `<span class="parent-indicator">${task.expanded ? '▼' : '▶'}</span>` : ""}${task.name} <span class="day-info">${dayText}</span>
                     </div>
                 </div>
             `;
@@ -299,52 +232,28 @@
     }
 
     document.getElementById('addBtn').onclick = () => {
-        const n = document.getElementById('taskName').value;
-        const s = document.getElementById('startDate').value;
-        const e = document.getElementById('endDate').value;
-        const pId = document.getElementById('parentSelect').value;
+        const n = document.getElementById('taskName').value, s = document.getElementById('startDate').value, e = document.getElementById('endDate').value, pId = document.getElementById('parentSelect').value;
         if(n && s && e) {
-            tasks.push({ 
-                id: Date.now(), 
-                name: n, start: s, end: e, done: false, 
-                isParent: (pId === ""), 
-                parentId: (pId === "" ? null : pId),
-                expanded: true 
-            });
+            tasks.push({ id: Date.now(), name: n, start: s, end: e, done: false, isParent: (pId === ""), parentId: (pId === "" ? null : pId), expanded: true });
             saveAndRender();
             document.getElementById('taskName').value = '';
         }
     };
 
-    window.toggleTask = (id) => { 
-        const task = tasks.find(t => t.id == id);
-        if(task) task.done = !task.done; 
-        saveAndRender(); 
-    };
-    
-    window.deleteTask = (id) => { 
-        if(confirm('確定刪除？')) { 
-            tasks = tasks.filter(t => t.id != id && t.parentId != id);
-            saveAndRender(); 
-        } 
-    };
-
+    window.toggleTask = (id) => { const t = tasks.find(t => t.id == id); if(t) t.done = !t.done; saveAndRender(); };
+    window.deleteTask = (id) => { if(confirm('確定刪除？')) { tasks = tasks.filter(t => t.id != id && t.parentId != id); saveAndRender(); } };
     document.getElementById('clearBtn').onclick = () => { if(confirm('清空？')) { tasks=[]; saveAndRender(); } };
-
+    
     document.getElementById('exportBtn').onclick = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
-        const a = document.createElement('a'); a.href = dataStr; a.download = "gantt_hierarchy_backup.json"; a.click();
+        const a = document.createElement('a');
+        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
+        a.download = "gantt_backup.json"; a.click();
     };
 
     document.getElementById('importBtn').onclick = () => document.getElementById('fileInput').click();
     document.getElementById('fileInput').onchange = (e) => {
         const reader = new FileReader();
-        reader.onload = (ev) => { 
-            try {
-                tasks = JSON.parse(ev.target.result); 
-                saveAndRender(); 
-            } catch(err) { alert("匯入失敗"); }
-        };
+        reader.onload = (ev) => { try { tasks = JSON.parse(ev.target.result); saveAndRender(); } catch(err){alert("匯入失敗");} };
         reader.readAsText(e.target.files[0]);
     };
 
