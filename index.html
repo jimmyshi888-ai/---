@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業甘特圖 - 多維度視圖與層級管理</title>
+    <title>專業甘特圖 - 精準日期視圖版</title>
     <style>
         :root {
             --overdue-color: #e74c3c;
             --done-color: #95a5a6;
             --bg-color: #f4f7f6;
             --bar-height: 55px;
-            --cell-width: 60px; /* 動態調整 */
+            --cell-width: 60px; 
         }
 
         body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background-color: var(--bg-color); margin: 0; padding: 10px; }
@@ -25,13 +25,12 @@
         #addBtn { background: #4a90e2; color: white; }
         #clearBtn { background: #7f8c8d; color: white; }
 
-        /* 視圖切換下拉選單樣式 */
         .view-selector { background: #34495e; color: white; font-weight: bold; }
 
         .gantt-scroll-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: white; position: relative; }
         .gantt-wrapper { position: relative; }
-        .gantt-header { display: flex; background: #f8f9fa; border-bottom: 2px solid #dee2e6; height: 40px; align-items: center; }
-        .gantt-date-cell { width: var(--cell-width); flex-shrink: 0; text-align: center; font-size: 11px; border-right: 1px solid #f1f1f1; color: #888; font-weight: bold; }
+        .gantt-header { display: flex; background: #f8f9fa; border-bottom: 2px solid #dee2e6; height: 45px; align-items: center; }
+        .gantt-date-cell { width: var(--cell-width); flex-shrink: 0; text-align: center; font-size: 10px; border-right: 1px solid #f1f1f1; color: #555; font-weight: bold; line-height: 1.2; padding: 2px; }
         .gantt-body { position: relative; min-height: 500px; background-image: linear-gradient(to right, #f1f1f1 1px, transparent 1px); }
         .task-row { height: var(--bar-height); position: relative; border-bottom: 1px solid #f8f9fa; }
 
@@ -56,14 +55,14 @@
 <body>
 
 <div class="container">
-    <h2>📊 專案進度管理 (多視圖切換版)</h2>
-    <p class="subtitle">支援父子鑽取 | 切換日、周、月、年視圖</p>
+    <h2>📊 專案進度管理 (精準日期視圖)</h2>
+    <p class="subtitle">支援父子鑽取 | 周/月檢視顯示明確日期範圍</p>
     
     <div class="toolbar">
         <select id="viewMode" class="view-selector" onchange="changeViewMode()">
             <option value="day">檢視：日 (Day)</option>
-            <option value="week">檢視：周 (Week)</option>
-            <option value="month">檢視：月 (Month)</option>
+            <option value="week">檢視：周 (Week Range)</option>
+            <option value="month">檢視：月 (Month Range)</option>
             <option value="year">檢視：年 (Year)</option>
         </select>
         <button id="exportBtn" class="btn" style="background:#8e44ad;color:white">⬇ 匯出</button>
@@ -91,7 +90,7 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'gantt_v11_multiview';
+    const STORAGE_KEY = 'gantt_v12_precise_dates';
     let tasks = [];
     let currentViewMode = 'day';
 
@@ -142,6 +141,10 @@
         if (task) { task.expanded = !task.expanded; saveAndRender(); }
     }
 
+    function formatDate(date) {
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
     function renderGantt() {
         const ganttHeader = document.getElementById('ganttHeader');
         const ganttBody = document.getElementById('ganttBody');
@@ -155,43 +158,51 @@
         let minDate = new Date(Math.min(...allDates));
         let maxDate = new Date(Math.max(...allDates));
 
-        // 調整比例參數
         let cellWidth = 60;
-        let stepMs = 86400000; // 一天
+        let stepMs = 86400000; 
 
         if (currentViewMode === 'day') {
             minDate.setDate(minDate.getDate() - 2);
             maxDate.setDate(maxDate.getDate() + 5);
         } else if (currentViewMode === 'week') {
-            stepMs *= 7; cellWidth = 100;
-            minDate.setDate(minDate.getDate() - 14);
+            stepMs *= 7; cellWidth = 110; // 增加寬度以容納日期區間文字
+            // 調整 minDate 到該週的週一
+            let day = minDate.getDay() || 7;
+            minDate.setDate(minDate.getDate() - day + 1);
             maxDate.setDate(maxDate.getDate() + 21);
         } else if (currentViewMode === 'month') {
-            stepMs *= 30; cellWidth = 120;
-            minDate.setMonth(minDate.getMonth() - 1);
+            stepMs *= 30; cellWidth = 140;
+            minDate.setDate(1); // 調整到月初
             maxDate.setMonth(maxDate.getMonth() + 2);
         } else if (currentViewMode === 'year') {
             stepMs *= 365; cellWidth = 200;
-            minDate.setFullYear(minDate.getFullYear() - 1);
+            minDate.setMonth(0, 1); // 調整到年初
             maxDate.setFullYear(maxDate.getFullYear() + 1);
         }
 
-        const totalWidthDays = Math.ceil((maxDate - minDate) / stepMs) + 1;
+        const totalWidthCells = Math.ceil((maxDate - minDate) / stepMs) + 1;
         document.documentElement.style.setProperty('--cell-width', `${cellWidth}px`);
-        ganttWrapper.style.width = `${totalWidthDays * cellWidth}px`;
+        ganttWrapper.style.width = `${totalWidthCells * cellWidth}px`;
         ganttBody.style.backgroundSize = `${cellWidth}px 100%`;
 
-        for (let i = 0; i < totalWidthDays; i++) {
-            let curr = new Date(minDate.getTime() + i * stepMs);
+        for (let i = 0; i < totalWidthCells; i++) {
+            let startRange = new Date(minDate.getTime() + i * stepMs);
+            let endRange = new Date(startRange.getTime() + stepMs - 86400000);
+            
             const cell = document.createElement('div');
             cell.className = 'gantt-date-cell';
             
-            if (currentViewMode === 'day') cell.innerText = `${curr.getMonth() + 1}/${curr.getDate()}`;
-            else if (currentViewMode === 'week') cell.innerText = `${curr.getMonth() + 1}月 第${Math.ceil(curr.getDate()/7)}週`;
-            else if (currentViewMode === 'month') cell.innerText = `${curr.getFullYear()}/${curr.getMonth() + 1}月`;
-            else cell.innerText = `${curr.getFullYear()}年`;
+            if (currentViewMode === 'day') {
+                cell.innerText = formatDate(startRange);
+            } else if (currentViewMode === 'week') {
+                cell.innerHTML = `${formatDate(startRange)}<br>|<br>${formatDate(endRange)}`;
+            } else if (currentViewMode === 'month') {
+                cell.innerHTML = `${startRange.getFullYear()}/${startRange.getMonth()+1}月<br>(${formatDate(startRange)}-${formatDate(endRange)})`;
+            } else {
+                cell.innerText = `${startRange.getFullYear()}年`;
+            }
 
-            if (currentViewMode === 'day' && curr.toDateString() === today.toDateString()) cell.style.background = "#fff3cd";
+            if (currentViewMode === 'day' && startRange.toDateString() === today.toDateString()) cell.style.background = "#fff3cd";
             ganttHeader.appendChild(cell);
         }
 
@@ -247,7 +258,7 @@
     document.getElementById('exportBtn').onclick = () => {
         const a = document.createElement('a');
         a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks));
-        a.download = "gantt_backup.json"; a.click();
+        a.download = "gantt_precise_backup.json"; a.click();
     };
 
     document.getElementById('importBtn').onclick = () => document.getElementById('fileInput').click();
